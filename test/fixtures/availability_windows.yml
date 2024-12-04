@@ -1,0 +1,13 @@
+# Read about fixtures at https://api.rubyonrails.org/classes/ActiveRecord/FixtureSet.html
+
+one:
+  start_time: 2024-11-26 18:35:05
+  end_time: 2024-11-26 18:35:05
+  booking_type: one
+  coach: one
+
+two:
+  start_time: 2024-11-26 18:35:05
+  end_time: 2024-11-26 18:35:05
+  booking_type: two
+  coach: two
