@@ -81,5 +81,7 @@ test:
 # for a full overview on how database connection configuration can be specified.
 #
 production:
+  adapter: postgresql
+  encoding: unicode
   url: <%= ENV["DATABASE_URL"] %>
   pool: 5
