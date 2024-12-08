@@ -85,7 +85,7 @@ production:
     <<: *default
     database: booking_server_production
     username: booking_server
-    password: <%= ENV["DATABASE_URL"] %>
+    password: <%= ENV["BOOKING_SERVER_DATABASE_PASSWORD"] %>
   cache:
     <<: *primary_production
     database: booking_server_production_cache
