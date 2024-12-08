@@ -1,30 +1,26 @@
 module Api
   module V1
     class AvailabilitySlotsController < ApplicationController
+      # TODO: Move to query object
+      # - can introduce start_date, end_date, & pagination & use react query useInfiniteQuery
       def index
         coach = User.find(params[:coach_id])
-        date = params[:date].to_date
+
+        if params[:date]
+          date = params[:date].to_date
+          slots = AvailabilitySlot
+                    .where(coach: coach)
+                    .where("start_time >= ? AND start_time < ?", date.beginning_of_day, date.end_of_day)
+                    .where(booked: false)
+                    .order(:start_time)
+        else
+          slots = AvailabilitySlot
+            .where(coach: coach)
+            .where(booked: false)
+            .order(:start_time)
+        end
     
-        # Fetch all slots for the given date and coach
-        slots = AvailabilitySlot
-                  .where(coach: coach)
-                  .where("start_time >= ? AND start_time < ?", date.beginning_of_day, date.end_of_day)
-                  .includes(:booking)
-                  .order(:start_time)
-    
-        render json: slots.map { |slot| slot_json(slot) }
-      end
-    
-      private
-    
-      def slot_json(slot)
-        {
-          id: slot.id,
-          start_time: slot.start_time,
-          end_time: slot.end_time,
-          booked: slot.booked,
-          booking_id: slot.booking_id
-        }
+        render json: slots
       end
     end
   end

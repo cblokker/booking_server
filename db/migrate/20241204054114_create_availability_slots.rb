@@ -2,7 +2,7 @@ class CreateAvailabilitySlots < ActiveRecord::Migration[8.0]
   def change
     create_table :availability_slots do |t|
       t.datetime :start_time, null: false
-      t.datetime :end_time, null: false
+      t.datetime :end_time, null: false # duration?
       t.bigint :coach_id, null: false
       t.bigint :availability_window_id, null: false
       t.boolean :booked, default: false, null: false

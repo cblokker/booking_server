@@ -1,20 +1,16 @@
 module Api
   module V1
-    class AvailabilityWindowsController < ApplicationController
-      before_action :set_coach
-
-      # GET /coaches/:coach_id/availability_windows
+    class AvailabilityWindowsController < ApplicationController 
       def index
-        availability = @coach.availability_windows.order(:day_of_week)
-
+        availability = current_user.availability_windows.order(:day_of_week)
         render json: availability
       end
 
-      # PUT /coaches/:coach_id/availability_windows/bulk_update
       def bulk_update
         result = UseCase::AvailabilityWindow::BulkUpdate.new(
-          coach: @coach,
-          availability: availability_params
+          coach: current_user,
+          availability: availability_params[:availability_windows],
+          timezone: availability_params[:timezone]
         ).call
 
         if result.success?
@@ -26,24 +22,15 @@ module Api
     
       private
     
-      def set_coach
-        @coach = User.find(params[:coach_id])
-      rescue ActiveRecord::RecordNotFound
-        render json: { success: false, error: "Coach not found" }, status: :not_found
-      end
-
       def availability_params
-        params.require(:availability_windows).map do |availability_day|
-          availability_day.permit(
-            :id,
-            :day_of_week,
-            :coach_id,
-            intervals: [
-              :start_time,
-              :end_time,
-            ]
-          )
-        end
+        params.permit(:timezone, availability_windows: [
+          :id,
+          :day_of_week,
+          intervals: [
+            :start_time,
+            :end_time
+          ]
+        ])
       end
     end
   end

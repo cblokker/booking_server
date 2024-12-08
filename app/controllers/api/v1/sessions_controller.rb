@@ -14,17 +14,6 @@ module Api
           render json: { message: 'Logged out successfully' }, status: :ok and return
         end
       end
-      # include Devise::Controllers::Helpers
-      # before_action :authenticate_user!
-
-      # Note: Should go with JWT instead, but wanted to get something up quick
-      # def current_u
-      #   render json: current_user
-      # end
-
-
-      # Toggle user by ID
-      
     end
   end
 end

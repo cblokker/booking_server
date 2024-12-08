@@ -12,8 +12,3 @@ class CreateUsers < ActiveRecord::Migration[8.0]
     end
   end
 end
-
-
-
-
-# TODO: Create RecurrenceRuleConverter (custom recurrence_rule -> to ical format converter)

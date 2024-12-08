@@ -2,6 +2,7 @@ module Api
   module V1
     class UsersController < ApplicationController
       
+      # TODO: Move to query object
       def index
         @users = if params[:role] == 'coach'
           User.coaches
@@ -14,12 +15,7 @@ module Api
         render json: @users
       end
 
-      def show
-        render json: current_user
-        # @user = User.find(params[:id])
-      end
-
-      # Note: Below is a hack implementation - should really be using jwt
+      # TODO: Switch to JWT
       def show_current_user
         if user_signed_in?
           render json: current_user, status: :ok

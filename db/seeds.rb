@@ -79,38 +79,3 @@ availability_windows_data = [
   }
 ]
 AvailabilityWindow.insert_all(availability_windows_data)
-
-# Insert booking types for coaches
-# booking_types_data = coaches.map do |coach|
-#   {
-#     name: "One Hour Session",
-#     duration_minutes: 60,
-#     coach_id: coach.id
-#   }
-# end
-# BookingType.insert_all(booking_types_data)
-
-# Insert bookings
-# bookings_data = [
-#   {
-#     start_time: DateTime.now.change(hour: 10, min: 0),
-#     status: 1, # Confirmed
-#     satisfaction_score: nil,
-#     notes: "First session",
-#     availability_window_id: AvailabilityWindow.first.id,
-#     student_id: students[0].id,
-#     coach_id: coaches[0].id,
-#     booking_type_id: BookingType.first.id
-#   },
-#   {
-#     start_time: DateTime.now.change(hour: 15, min: 0),
-#     status: 1, # Confirmed
-#     satisfaction_score: nil,
-#     notes: "Follow-up session",
-#     availability_window_id: AvailabilityWindow.last.id,
-#     student_id: students[1].id,
-#     coach_id: coaches[1].id,
-#     booking_type_id: BookingType.last.id
-#   }
-# ]
-# Booking.insert_all(bookings_data)

@@ -1,109 +1,111 @@
+# TODO: Revist slot generation. Parallelize with threads, place in sidekiq background job,
+# or mix-in with cache. Consider linking with ice-cube gem for ical rrule format,
+# where the availability_window holds the rules to generate the windows. The +1 month into the
+# future is random, and would be nice to performanly/dynamically compute more on query level (create a view?).
+
+# TODO: Revisit AvailabilityWindow.intervals jsonb - consider flattening to just start_time,
+# end_time, or using something like tsrange with a db level overlap exclusion. Looping over
+# the jsonb, the risk of key mismatch, and complexity of overlap validation logic is not worth it.
+# I origionally chose jsonb becuase I though it would play nicely with upsert, but the
+# above drawbacks is making me rethink.
+
+# TODO: Add dry.rb or other validator into all service object & use cases. Consider monads.
+
 module UseCase
   module AvailabilityWindow
     class BulkUpdate
-      Result = Struct.new(:success?, :errors, :data)
-
-      def initialize(coach:, availability:)
-        @coach = coach
+      def initialize(coach:, availability:, timezone:)
+        @coach = coach # TODO: is a coach validation
         @availability = availability
+        @timezone = timezone
       end
 
       def call
         validate_inputs!
-        process_availability_update
 
-        Result.new(true, nil, @availability)
-      rescue ValidationError => e
-        Result.new(false, ["Validation failed: #{e.message}"], nil)
-      rescue ActiveRecord::Rollback
-        Result.new(false, ["Transaction rollback occurred"], nil)
-      rescue ActiveRecord::RecordInvalid => e
-        Result.new(false, ["Database error: #{e.message}"], nil)
-      rescue StandardError => e
-        Result.new(false, ["Unexpected error: #{e.message}"], nil)
-      end
-
-      private
-
-      def validate_inputs!
-        raise ValidationError, "Coach must be present" unless @coach.present?
-        raise ValidationError, "Availability data must be an array" unless @availability.is_a?(Array)
-      end
-
-      def process_availability_update
         ActiveRecord::Base.transaction do
           delete_stale_windows
           upsert_intervals
           precompute_and_upsert_slots
         end
+
+        # Todo: Place any string going through API into yaml file,
+        # prepare to use i18n
+        UseCase::Result.success(data: { availability: availability })
+      rescue ValidationError => e
+        UseCase::Result.failure(errors: ["Validation failed: #{e.message}"])
+      rescue ActiveRecord::Rollback
+        UseCase::Result.failure(errors: ["Transaction rollback occurred"])
+      rescue ActiveRecord::RecordInvalid => e
+        UseCase::Result.failure(errors: ["Database error: #{e.message}"])
+      rescue StandardError => e
+        UseCase::Result.failure(errors: ["Unexpected error: #{e.message}"])
+      end
+
+      private
+
+      attr_reader :coach, :availability, :timezone, :upserted_windows
+
+      def validate_inputs!
+        # TODO: validate intervals.
+        raise ValidationError, "Coach must be present" unless coach.present?
+        raise ValidationError, "Availability data must be an array" unless availability.is_a?(Array)
       end
 
       def delete_stale_windows
-        existing_ids = ::AvailabilityWindow.where(coach_id: @coach.id).pluck(:id)
-        incoming_ids = @availability.map { |entry| entry[:id] }.compact
-        stale_ids = existing_ids - incoming_ids
+        return if stale_window_ids.empty?
 
-        # Note - could rely on a dependent destroy through the association, but
-        # 1) since upsert bypasses validations, wary of behavior
-        # 2) More performant, as dependent destroy will single deletes queries per item
-        if stale_ids.any?
-          ::AvailabilitySlot.where(availability_window_id: stale_ids).delete_all
-          ::AvailabilityWindow.where(id: stale_ids).delete_all
-        end
+        # TODO: Large edge case. Assume we want to preserve the og bookings
+        # but in future need to think about conflict resolution when updating
+        # recurring slots & pre-existing bookings. Have option to keep all,
+        # cancel all, or reshcedule request to fit new schedule. May want to
+        # decouple the concept of an availability window & the slots within them,
+        # and give the student the more flexibility to create a booking within the
+        # given range. 
+        ::AvailabilitySlot.where(availability_window_id: stale_window_ids).delete_all
+        ::AvailabilityWindow.where(id: stale_window_ids).delete_all
+      end
+
+      def stale_window_ids
+        @stale_window_ids ||= ::AvailabilityWindow
+          .where(coach_id: coach.id)
+          .where.not(id: incoming_window_ids)
+          .pluck(:id)
+      end
+
+      def incoming_window_ids
+        @incoming_window_ids ||= availability.map { |entry| entry[:id] }.compact
       end
 
       def upsert_intervals
-        ::AvailabilityWindow.upsert_all(
+        @upserted_windows ||= ::AvailabilityWindow.upsert_all(
           formatted_availability_data,
-          unique_by: :idx_on_coach_id_day_of_week_and_time
+          unique_by: :idx_on_coach_id_day_of_week,
+          returning: %i[id coach_id day_of_week intervals]
         )
       end
 
-      def precompute_and_upsert_slots
-        slots = generate_slots(@availability)
-        binding.pry
-        ::AvailabilitySlot.upsert_all(slots, unique_by: %i[coach_id start_time])
-      end
-
       def formatted_availability_data
-        @availability.as_json.map { |entry| entry.except("id") }
-      end
-
-      # consider moving generate_slots into custom class - can do time ranges, etc.
-      # And call method in both postgres & redis updates.
-      def generate_slots(availability_data)
-        availability_data.flat_map do |availability|
-          generate_slots_for_availability(availability)
+        @formatted_availability_data ||= availability.as_json.map do |entry|
+          entry
+            .except("id")
+            .merge("coach_id" => coach.id)
         end
       end
 
-      def generate_slots_for_availability(availability)
-        availability[:intervals].flat_map do |interval|
-          generate_slots_for_interval(interval, availability)
+      def precompute_and_upsert_slots
+        availability_windows = ::Adapter::UpsertResponse
+          .new(upserted_windows)
+          .to_availability_windows
+
+        slots = availability_windows.flat_map do |window|
+          ::Service::SlotGenerator.new(
+            window: window,
+            timezone: timezone
+          ).generate_slots
         end
-      end
 
-      def generate_slots_for_interval(interval, availability)
-        start_time = interval[:start_time].to_time
-        end_time = interval[:end_time].to_time
-        default_duration = 2.hours
-
-        [].tap do |slot_records|
-          while start_time + default_duration <= end_time
-            slot_records << build_slot(start_time, availability, default_duration)
-            start_time += default_duration
-          end
-        end
-      end
-
-      def build_slot(start_time, availability, duration)
-        {
-          start_time: start_time,
-          end_time: start_time + duration,
-          coach_id: availability[:coach_id],
-          availability_window_id: availability[:id],
-          booked: false
-        }
+        ::AvailabilitySlot.upsert_all(slots, unique_by: %i[coach_id start_time])
       end
 
       class ValidationError < StandardError; end

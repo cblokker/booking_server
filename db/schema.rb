@@ -34,22 +34,21 @@ ActiveRecord::Schema[8.0].define(version: 2024_12_04_054114) do
     t.bigint "coach_id", null: false
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
-    t.index ["coach_id", "day_of_week", "intervals"], name: "idx_on_coach_id_day_of_week_and_time", unique: true
+    t.index ["coach_id", "day_of_week"], name: "idx_on_coach_id_day_of_week", unique: true
     t.index ["coach_id"], name: "index_availability_windows_on_coach_id"
     t.index ["intervals"], name: "index_availability_windows_on_intervals", using: :gin
   end
 
   create_table "bookings", force: :cascade do |t|
     t.datetime "start_time", null: false
+    t.datetime "end_time", null: false
     t.integer "status", default: 0, null: false
     t.integer "satisfaction_score"
     t.text "notes"
-    t.bigint "availability_window_id", null: false
     t.bigint "student_id", null: false
     t.bigint "coach_id", null: false
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
-    t.index ["availability_window_id"], name: "index_bookings_on_availability_window_id"
     t.index ["coach_id"], name: "index_bookings_on_coach_id"
     t.index ["student_id"], name: "index_bookings_on_student_id"
   end
@@ -76,7 +75,6 @@ ActiveRecord::Schema[8.0].define(version: 2024_12_04_054114) do
   add_foreign_key "availability_slots", "bookings"
   add_foreign_key "availability_slots", "users", column: "coach_id"
   add_foreign_key "availability_windows", "users", column: "coach_id"
-  add_foreign_key "bookings", "availability_windows"
   add_foreign_key "bookings", "users", column: "coach_id"
   add_foreign_key "bookings", "users", column: "student_id"
 end

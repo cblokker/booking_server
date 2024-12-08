@@ -2,50 +2,29 @@ class Booking < ApplicationRecord
   ### ASSOCIATIONS ###
   belongs_to :student, foreign_key: 'student_id', class_name: 'User'
   belongs_to :coach, foreign_key: 'coach_id', class_name: 'User'
-  belongs_to :availability_slot
+  has_one :availability_slot
 
   ### VALIDATIONS ###
   validates :satisfaction_score, inclusion: { in: 1..5 }, allow_nil: true
   validates :status, presence: true
 
-  ### ENUMS ###
+  ### ENUMS ### - can hook this up to a state machine like aasm if need be.
   enum :status, {
-    available: 0,
-    booked: 1,
+    booked: 0,
+    started: 1,
     completed: 2,
     canceled: 3,
-    no_show: 4
+    rescheduled: 4
   }
 
-  ### INSTANCE METHODS ###
-  def end_time
-    start_time + duration.minutes
-  end
+  scope :for_student, ->(student_id) { where(student_id: student_id) }
+  scope :for_coach, ->(coach_id) { where(coach_id: coach_id) }
+
+  scope :upcoming, -> { where('start_time > ?', Time.current) }
+  scope :past, -> { where('end_time < ?', Time.current) }
+  scope :ongoing, -> { where('start_time <= ? AND end_time >= ?', Time.current, Time.current) }
+
+  scope :missed, -> { past.booked }
+  scope :upcoming_booked, -> { upcoming.booked }
+  scope :past_completed, -> { past.completed }
 end
-
-
-
-# "Apply changes to future weeks" or "This week only."
-
-
-  # validate :valid_booking_duration
-  # validate :within_availability
-
-  # def valid_booking_duration
-  #   if (end_time - start_time) / 60 != booking_type.duration_minutes
-  #     errors.add(:base, "Booking duration must match the selected booking type")
-  #   end
-  # end
-
-  # def within_availability
-  #   window = availability_window
-  #   unless (start_time >= window.start_time && end_time <= window.end_time)
-  #     errors.add(:base, 'Booking must fall within the availability window')
-  #   end
-  # end
-
-  ### SCOPES ###
-  # scope upcoming
-  # scope past
-  # scope current
-  # scope past.pending == "no_show"
