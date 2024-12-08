@@ -8,6 +8,7 @@ gem "pg", "~> 1.1"
 gem "puma", ">= 5.0"
 # Build JSON APIs with ease [https://github.com/rails/jbuilder]
 # gem "jbuilder"
+ruby '3.3.4'
 
 # Use Active Model has_secure_password [https://guides.rubyonrails.org/active_model_basics.html#securepassword]
 # gem "bcrypt", "~> 3.1.7"
@@ -47,8 +48,4 @@ group :development, :test do
   gem "pry"
 end
 
-gem 'sidekiq'
-gem 'redis'
 gem 'devise'
-gem 'devise-jwt'
-gem 'ice_cube'
