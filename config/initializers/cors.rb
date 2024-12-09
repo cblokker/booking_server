@@ -7,7 +7,7 @@
 
 Rails.application.config.middleware.insert_before 0, Rack::Cors do
   allow do
-    origins ENV['REACT_APP_URL'] || 'https://bookingclient-0e4fee061c97.herokuapp.com'
+    origins 'https://bookingclient-0e4fee061c97.herokuapp.com' # TODO: Add to .env
 
     resource "*",
       headers: :any,
