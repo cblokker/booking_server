@@ -85,4 +85,9 @@ Rails.application.configure do
   #
   # Skip DNS rebinding protection for the default health check endpoint.
   # config.host_authorization = { exclude: ->(request) { request.path == "/up" } }
+  config.middleware.use ActionDispatch::Cookies
+  config.middleware.use ActionDispatch::Session::CookieStore, 
+                        key: '_your_app_session',
+                        same_site: :none,  # Required for cross-origin cookies
+                        secure: true       # Ensures cookies are only sent over HTTPS
 end
